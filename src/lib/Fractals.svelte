@@ -1,8 +1,10 @@
 <script lang="ts">
-  import { draw, C } from "../fractals-wasm";
-  import Selector from "./Selector.svelte";
-  import RangeInput from "./RangeInput.svelte";
+  import { onMount } from "svelte";
 
+  import { FractalPlotter, C } from "../fractals-wasm";
+  import RangeInput from "./RangeInput.svelte";
+  import Selector from "./Selector.svelte";  
+  
   const WIDTH = 700;
 
   enum Fractal {
@@ -13,16 +15,40 @@
   let canvas: HTMLCanvasElement;
   let selector: Selector;
 
-  let selectedFractal = $state(Fractal.Julia);
+  let selectedFractal = $state(Fractal.Mandelbrot);
   let real = $state(-1);
   let imaginary = $state(0);
+
+  let plotter: FractalPlotter;
+
+  onMount(() => {
+    plotter = new FractalPlotter(canvas);
+    plot();
+  });
+
+  function plot() {
+    let maybeC;
+    if (selectedFractal == Fractal.Julia) {
+      maybeC = new C(real, imaginary);
+    }
+    plotter.plot(maybeC, selector.getSelection());
+    selector.deselect();
+  }
+
+  function goBack() {
+    let maybeC;
+    if (selectedFractal == Fractal.Julia) {
+      maybeC = new C(real, imaginary);
+    }
+    plotter.go_back(maybeC);
+  }
 </script>
 
 <div style={`width: ${WIDTH}px`} class="">
-  <label for="fractal-select">Fractal</label>
-  <select bind:value={selectedFractal} id="fractal-select">
-    <option value={Fractal.Julia}>Julia</option>
+  <label for="fractal-select">Fractal:</label>
+  <select bind:value={selectedFractal} id="fractal-select" class="p-1 border-2 border-black">
     <option value={Fractal.Mandelbrot}>Mandelbrot</option>
+    <option value={Fractal.Julia}>Julia</option>
   </select>
   <div class:hidden={selectedFractal != Fractal.Julia}>
     <RangeInput
@@ -42,20 +68,14 @@
       bind:value={imaginary}
     />
   </div>
-  <button
-    class="w-full border-2 border-black py-1 mt-2"
-    onclick={() => {
-      // if (selectedFractal == Fractal.Mandelbrot) {
-      //   draw(canvas);
-      // } else {
-      //   draw(canvas, new C(real, imaginary));
-      // }
-     console.log(selector!.getSelection());
-    }}
-  >
-    Draw</button
-  >
-
+  <div class="flex gap-1.5 mt-2">
+    <button class="w-full border-2 border-black py-1" onclick={plot}>
+      Plot</button
+    >
+    <button class="w-full border-2 border-black py-1" onclick={goBack}>
+      &larr; Back</button
+    >
+  </div>  
   <div class="border-2 border-black mt-2 relative">
     <canvas
       bind:this={canvas}
@@ -65,9 +85,6 @@
       height={WIDTH - 4}
     >
     </canvas>
-    <Selector bind:this={selector} width={WIDTH - 4} />
+    <Selector bind:this={selector} width={WIDTH - 4} {plot} />    
   </div>
 </div>
-
-<style>
-</style>

@@ -1,13 +1,14 @@
 <script lang="ts">
-  import { Selection } from "../fractals-wasm";
-
   import { onMount } from "svelte";
+
+  import { Selection } from "../fractals-wasm";
 
   type Props = {
     width: number;
+    plot: () => void;
   };
 
-  let { width: canvasWidth }: Props = $props();
+  let { width: canvasWidth, plot }: Props = $props();
 
   let selection:
     | undefined
@@ -16,14 +17,18 @@
         y: number;
         dimensions: undefined | { width: number; height: number };
       };
-
-  let context: CanvasRenderingContext2D;
   let canvas: HTMLCanvasElement;
-
+  let context: CanvasRenderingContext2D;
+  
   onMount(() => {
     context = canvas.getContext("2d")!;
-    context.strokeStyle = "blue";
+    context.strokeStyle = "yellow";
   });
+
+  export function deselect() {
+    selection = undefined;
+    context.clearRect(0, 0, canvas.width, canvas.height);
+  }
 
   export function getSelection(): undefined | Selection {
     if (selection == undefined || selection.dimensions == undefined) {
@@ -69,9 +74,7 @@
         dimensions: undefined,
       };
       canvas.setPointerCapture(e.pointerId);
-      canvas.addEventListener("pointercancel", () => {
-        /// todo
-      });
+      canvas.addEventListener("pointercancel", handleCancel);
       canvas.addEventListener("pointermove", handleMove);
       canvas.addEventListener("pointerup", handleUp);
     } else {
@@ -99,13 +102,20 @@
         }
 
         if (inX && inY) {
-          console.log("inside");
+          plot();
         } else {
-          selection = undefined;
-          context.clearRect(0, 0, canvas.width, canvas.height);
+          deselect(); 
         }
-      }
+      }      
     }
+  }
+
+  function handleCancel(e: PointerEvent) {
+    deselect();
+    canvas.removeEventListener("pointercancel", handleCancel);
+    canvas.removeEventListener("pointermove", handleMove);
+    canvas.removeEventListener("pointerup", handleUp);
+    canvas.releasePointerCapture(e.pointerId);
   }
 
   function handleMove(e: PointerEvent) {
@@ -116,22 +126,24 @@
       let yDistance = pointerPos.y - selection.y;
       let len = Math.max(Math.abs(xDistance), Math.abs(yDistance));
 
-      let width = Math.sign(xDistance) * len; ///fix if 0
-      let height = Math.sign(yDistance) * len;
+      if (len > 0) {
+        let width = Math.sign(xDistance) * len;
+        let height = Math.sign(yDistance) * len;
 
-      let cornerX = selection.x + width;
-      let cornerY = selection.y + height;
+        let cornerX = selection.x + width;
+        let cornerY = selection.y + height;
 
-      if (
-        cornerX > 0 &&
-        cornerY > 0 &&
-        cornerX < canvas.width &&
-        cornerY < canvas.width
-      ) {
-        context.clearRect(0, 0, canvas.width, canvas.height);
-        context.beginPath();
-        context.strokeRect(selection.x, selection.y, width, height);
-        selection.dimensions = { width, height };
+        if (
+          cornerX > 0 &&
+          cornerY > 0 &&
+          cornerX < canvas.width &&
+          cornerY < canvas.width
+        ) {
+          context.clearRect(0, 0, canvas.width, canvas.height);
+          context.beginPath();
+          context.strokeRect(selection.x, selection.y, width, height);
+          selection.dimensions = { width, height };
+        }
       }
     }
   }
@@ -146,22 +158,23 @@
       context.beginPath();
       context.fillStyle = "rgba(20, 20, 20, 0.7)";
       context.fillRect(0, 0, canvas.width, canvas.height);
-
+      
       context.clearRect(
         selection.x,
         selection.y,
         selection.dimensions.width,
         selection.dimensions.height
       );
-      context.beginPath();
-      context.strokeStyle = "blue";
       context.strokeRect(
         selection.x,
         selection.y,
         selection.dimensions.width,
         selection.dimensions.height
       );
+    } else {
+      selection = undefined;
     }
+    canvas.removeEventListener("pointercancel", handleCancel);
     canvas.removeEventListener("pointermove", handleMove);
     canvas.removeEventListener("pointerup", handleUp);
     canvas.releasePointerCapture(e.pointerId);
